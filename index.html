@@ -2,67 +2,87 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>중등 기본서+RPM 통합 학습 스케줄</title>
+  <title>중등 기본서 + RPM 통합 학습 스케줄러</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
   <style>
-    body { font-family: Pretendard, Arial, sans-serif; padding: 32px; background:#f7f7f8; color:#222; }
-    h1 { margin-bottom: 8px; }
-    .box { background:white; padding:24px; border-radius:16px; margin-bottom:20px; box-shadow:0 4px 16px rgba(0,0,0,.06); }
-    label { display:block; margin:12px 0 6px; font-weight:700; }
-    input, select { padding:10px; border:1px solid #ddd; border-radius:10px; width:100%; box-sizing:border-box; }
-    button { margin-top:18px; padding:12px 18px; border:0; border-radius:12px; background:#111; color:white; cursor:pointer; font-weight:700; }
-    table { width:100%; border-collapse:collapse; background:white; margin-top:16px; }
-    th, td { border:1px solid #e5e5e5; padding:10px; text-align:left; vertical-align:top; }
-    th { background:#f0f0f2; }
-    .day { font-weight:800; color:#111; }
-    .warn { color:#d35400; font-weight:700; }
-    .ok { color:#148f4f; font-weight:700; }
-    .small { color:#666; font-size:13px; line-height:1.5; }
+    body { font-family: Arial, sans-serif; padding: 24px; background:#f7f7f7; }
+    h1, h2, h3 { margin-bottom: 10px; }
+    .box { background:#fff; padding:20px; border-radius:12px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,.08); }
+    label { display:block; margin:8px 0; }
+    input[type="file"], input[type="number"] { padding:8px; width:100%; box-sizing:border-box; margin-bottom:10px; }
+    button { padding:12px 20px; background:#111; color:#fff; border:0; border-radius:8px; cursor:pointer; font-weight:bold; }
+    table { width:100%; border-collapse:collapse; background:#fff; margin-top:20px; }
+    th, td { border:1px solid #ddd; padding:10px; vertical-align:top; }
+    th { background:#eee; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    .small { font-size:13px; color:#666; }
+    .over { color:#d35400; font-weight:bold; }
+    .ok { color:#148f4f; font-weight:bold; }
   </style>
 </head>
-
 <body>
-  <h1>중등 기본서 + RPM 통합 학습 스케줄</h1>
-  <p class="small">
-    기본서 파일과 RPM 파일을 업로드하면, 소단원 기준으로 묶어서 주 4일 / 하루 2시간 학습표를 생성합니다.
-  </p>
 
+<h1>중등 기본서 + RPM 통합 학습 스케줄러</h1>
+
+<div class="box">
+  <h2>파일 업로드</h2>
+  <label>기본서 엑셀 파일</label>
+  <input type="file" id="basicFile" accept=".xlsx,.xls" />
+
+  <label>RPM 엑셀 파일</label>
+  <input type="file" id="rpmFile" accept=".xlsx,.xls" />
+
+  <label>하루 목표 학습 시간(분)</label>
+  <input type="number" id="dailyLimit" value="120" />
+
+  <label>주당 개인학습일</label>
+  <input type="number" id="daysPerWeek" value="4" />
+
+  <label>문항 1개당 풀이 시간(분)</label>
+  <input type="number" id="problemMin" value="2" />
+</div>
+
+<div class="grid">
   <div class="box">
-    <label>기본서 엑셀 파일</label>
-    <input type="file" id="basicFile" accept=".xlsx,.xls" />
-
-    <label>RPM 엑셀 파일</label>
-    <input type="file" id="rpmFile" accept=".xlsx,.xls" />
-
-    <label>주당 개인학습일</label>
-    <input type="number" id="daysPerWeek" value="4" />
-
-    <label>하루 목표 학습 시간(분)</label>
-    <input type="number" id="dailyLimit" value="120" />
-
-    <label>기본서 목표 시간(분)</label>
-    <input type="number" id="basicTarget" value="60" />
-
-    <label>RPM 목표 시간(분)</label>
-    <input type="number" id="rpmTarget" value="60" />
-
-    <label>기본서 문제 1문항 풀이 시간(분)</label>
-    <input type="number" id="basicProblemMin" value="2" />
-
-    <label>RPM 문제 1문항 풀이 시간(분)</label>
-    <input type="number" id="rpmProblemMin" value="2" />
-
-    <button onclick="makeSchedule()">시간표 생성</button>
+    <h2>기본서 Day1 학습</h2>
+    <p class="small">1회독 첫날에 반드시 할 기본서 학습 항목</p>
+    <div id="basicDay1Checks"></div>
   </div>
 
   <div class="box">
-    <h2>결과</h2>
-    <div id="summary"></div>
-    <div id="result"></div>
+    <h2>기본서 Day2~Day4 학습</h2>
+    <p class="small">Day1 이후로 넘길 기본서 학습 항목</p>
+    <div id="basicLaterChecks"></div>
   </div>
+</div>
+
+<div class="grid">
+  <div class="box">
+    <h2>RPM Day1 학습</h2>
+    <p class="small">기본서 진도와 함께 바로 붙일 RPM 학습 항목</p>
+    <div id="rpmDay1Checks"></div>
+  </div>
+
+  <div class="box">
+    <h2>RPM Day2~Day4 학습</h2>
+    <p class="small">Day1 이후로 넘길 RPM 학습 항목</p>
+    <div id="rpmLaterChecks"></div>
+  </div>
+</div>
+
+<div class="box">
+  <button onclick="makeSchedule()">시간표 생성</button>
+</div>
+
+<div class="box">
+  <h2>결과</h2>
+  <div id="summary"></div>
+  <div id="result"></div>
+</div>
 
 <script>
-const BASIC_PROBLEM_COLUMNS = [
+const BASIC_COLUMNS = [
+  "개념영상",
   "개념원리 익히기",
   "필수예제",
   "확인체크",
@@ -72,11 +92,11 @@ const BASIC_PROBLEM_COLUMNS = [
   "특강확인",
   "STEP1",
   "STEP2",
-  "실력UP",
-  "문제"
+  "실력UP"
 ];
 
-const RPM_PROBLEM_COLUMNS = [
+const RPM_COLUMNS = [
+  "대표문제 영상",
   "교과서 문제",
   "대표 문제",
   "유형 문제",
@@ -87,9 +107,50 @@ const RPM_PROBLEM_COLUMNS = [
   "시꼭문 실력UP"
 ];
 
-function msToMin(ms) {
-  const n = Number(ms || 0);
-  return n / 1000 / 60;
+function renderChecks(targetId, columns, checkedList = []) {
+  const el = document.getElementById(targetId);
+  el.innerHTML = columns.map(col => `
+    <label>
+      <input type="checkbox" value="${col}" ${checkedList.includes(col) ? "checked" : ""}>
+      ${col}
+    </label>
+  `).join("");
+}
+
+renderChecks("basicDay1Checks", BASIC_COLUMNS, [
+  "개념영상",
+  "개념원리 익히기",
+  "필수예제"
+]);
+
+renderChecks("basicLaterChecks", BASIC_COLUMNS, [
+  "확인체크",
+  "발전예제",
+  "발전확인",
+  "특강예제",
+  "특강확인",
+  "STEP1",
+  "STEP2",
+  "실력UP"
+]);
+
+renderChecks("rpmDay1Checks", RPM_COLUMNS, [
+  "대표문제 영상",
+  "대표 문제",
+  "유형UP 대표 문제"
+]);
+
+renderChecks("rpmLaterChecks", RPM_COLUMNS, [
+  "교과서 문제",
+  "유형 문제",
+  "유형UP 유형 문제",
+  "시꼭문",
+  "시꼭문 서술형",
+  "시꼭문 실력UP"
+]);
+
+function getChecked(id) {
+  return [...document.querySelectorAll(`#${id} input:checked`)].map(x => x.value);
 }
 
 function num(v) {
@@ -97,11 +158,15 @@ function num(v) {
   return isNaN(n) ? 0 : n;
 }
 
+function msToMin(ms) {
+  return num(ms) / 1000 / 60;
+}
+
 function fmt(min) {
   const m = Math.round(min);
   const h = Math.floor(m / 60);
   const r = m % 60;
-  if (h <= 0) return `${r}분`;
+  if (h === 0) return `${r}분`;
   if (r === 0) return `${h}시간`;
   return `${h}시간 ${r}분`;
 }
@@ -111,8 +176,7 @@ function readWorkbook(file) {
     const reader = new FileReader();
     reader.onload = e => {
       const data = new Uint8Array(e.target.result);
-      const wb = XLSX.read(data, { type: "array" });
-      resolve(wb);
+      resolve(XLSX.read(data, { type: "array" }));
     };
     reader.onerror = reject;
     reader.readAsArrayBuffer(file);
@@ -129,126 +193,152 @@ function workbookToRows(wb) {
   return rows;
 }
 
-function groupBasic(rows, problemMin) {
+function getUnitId(row) {
+  return row.unit_id || row.소단원id || row.custom_code || "";
+}
+
+function calcBasicRows(rows, day1Cols, laterCols, problemMin) {
   const map = {};
 
   rows.forEach(row => {
-    const unit = row.unit_id || row.소단원id || row.custom_code;
+    const unit = getUnitId(row);
     if (!unit) return;
 
     if (!map[unit]) {
       map[unit] = {
         unit_id: unit,
         sheetName: row.sheetName,
-        basicVideoMin: 0,
-        basicProblemCount: 0,
-        basicTime: 0
+        day1Time: 0,
+        laterTime: 0,
+        day1Items: [],
+        laterItems: []
       };
     }
 
-    map[unit].basicVideoMin += msToMin(row.duration_ms);
+    const videoMin = msToMin(row.duration_ms);
 
-    BASIC_PROBLEM_COLUMNS.forEach(col => {
-      if (row[col] !== undefined && row[col] !== "") {
-        map[unit].basicProblemCount += num(row[col]);
+    day1Cols.forEach(col => {
+      if (col === "개념영상") {
+        if (videoMin > 0) {
+          map[unit].day1Time += videoMin;
+          map[unit].day1Items.push(`개념영상 ${fmt(videoMin)}`);
+        }
+      } else if (row[col] !== undefined && row[col] !== "") {
+        const count = num(row[col]);
+        if (count > 0) {
+          const t = count * problemMin;
+          map[unit].day1Time += t;
+          map[unit].day1Items.push(`${col} ${count}문항`);
+        }
       }
     });
-  });
 
-  Object.values(map).forEach(u => {
-    u.basicTime = u.basicVideoMin + u.basicProblemCount * problemMin;
+    laterCols.forEach(col => {
+      if (col === "개념영상") {
+        if (videoMin > 0) {
+          map[unit].laterTime += videoMin;
+          map[unit].laterItems.push(`개념영상 ${fmt(videoMin)}`);
+        }
+      } else if (row[col] !== undefined && row[col] !== "") {
+        const count = num(row[col]);
+        if (count > 0) {
+          const t = count * problemMin;
+          map[unit].laterTime += t;
+          map[unit].laterItems.push(`${col} ${count}문항`);
+        }
+      }
+    });
   });
 
   return map;
 }
 
-function groupRpm(rows, problemMin) {
+function calcRpmRows(rows, day1Cols, laterCols, problemMin) {
   const map = {};
 
   rows.forEach(row => {
-    const unit = row.unit_id || row.소단원id || row.custom_code;
+    const unit = getUnitId(row);
     if (!unit) return;
 
     if (!map[unit]) {
       map[unit] = {
         unit_id: unit,
         sheetName: row.sheetName,
-        rpmVideoMin: 0,
-        rpmProblemCount: 0,
-        rpmTime: 0,
-        repVideoMin: 0
+        day1Time: 0,
+        laterTime: 0,
+        day1Items: [],
+        laterItems: []
       };
     }
 
     const videoType = String(row.video_type || "").trim();
+    const videoMin = msToMin(row.duration_ms);
 
-    // RPM에서 video_type 2는 대표문제 / 유형UP 대표문제 영상으로 간주
-    if (videoType === "2") {
-      map[unit].repVideoMin += msToMin(row.duration_ms);
-    } else {
-      map[unit].rpmVideoMin += msToMin(row.duration_ms);
-    }
-
-    RPM_PROBLEM_COLUMNS.forEach(col => {
-      if (row[col] !== undefined && row[col] !== "") {
-        map[unit].rpmProblemCount += num(row[col]);
+    day1Cols.forEach(col => {
+      if (col === "대표문제 영상") {
+        if (videoType === "2" && videoMin > 0) {
+          map[unit].day1Time += videoMin;
+          map[unit].day1Items.push(`대표문제 영상 ${fmt(videoMin)}`);
+        }
+      } else if (row[col] !== undefined && row[col] !== "") {
+        const count = num(row[col]);
+        if (count > 0) {
+          const t = count * problemMin;
+          map[unit].day1Time += t;
+          map[unit].day1Items.push(`${col} ${count}문항`);
+        }
       }
     });
-  });
 
-  Object.values(map).forEach(u => {
-    u.rpmVideoMin = u.repVideoMin + u.rpmVideoMin;
-    u.rpmTime = u.rpmVideoMin + u.rpmProblemCount * problemMin;
+    laterCols.forEach(col => {
+      if (col === "대표문제 영상") {
+        if (videoType === "2" && videoMin > 0) {
+          map[unit].laterTime += videoMin;
+          map[unit].laterItems.push(`대표문제 영상 ${fmt(videoMin)}`);
+        }
+      } else if (row[col] !== undefined && row[col] !== "") {
+        const count = num(row[col]);
+        if (count > 0) {
+          const t = count * problemMin;
+          map[unit].laterTime += t;
+          map[unit].laterItems.push(`${col} ${count}문항`);
+        }
+      }
+    });
   });
 
   return map;
 }
 
-function mergeUnits(basicMap, rpmMap) {
-  const ids = Array.from(new Set([
-    ...Object.keys(basicMap),
-    ...Object.keys(rpmMap)
-  ]));
+function mergeTasks(basicMap, rpmMap) {
+  const ids = [...new Set([...Object.keys(basicMap), ...Object.keys(rpmMap)])];
 
-  return ids.map(id => {
-    const b = basicMap[id] || {};
-    const r = rpmMap[id] || {};
-
-    return {
-      unit_id: id,
-      sheetName: b.sheetName || r.sheetName || "",
-      basicTime: b.basicTime || 0,
-      basicVideoMin: b.basicVideoMin || 0,
-      basicProblemCount: b.basicProblemCount || 0,
-      rpmTime: r.rpmTime || 0,
-      rpmVideoMin: r.rpmVideoMin || 0,
-      rpmProblemCount: r.rpmProblemCount || 0,
-      totalTime: (b.basicTime || 0) + (r.rpmTime || 0)
-    };
-  });
-}
-
-function splitUnitWork(units) {
   let tasks = [];
 
-  units.forEach(u => {
-    if (u.basicTime > 0) {
+  ids.forEach(id => {
+    const b = basicMap[id];
+    const r = rpmMap[id];
+
+    const day1Time = (b?.day1Time || 0) + (r?.day1Time || 0);
+    const laterTime = (b?.laterTime || 0) + (r?.laterTime || 0);
+
+    if (day1Time > 0) {
       tasks.push({
-        unit_id: u.unit_id,
-        sheetName: u.sheetName,
-        type: "기본서",
-        time: u.basicTime,
-        detail: `영상 ${fmt(u.basicVideoMin)}, 문제 ${u.basicProblemCount}문항`
+        unit_id: id,
+        phase: "Day1 학습",
+        time: day1Time,
+        basic: b?.day1Items || [],
+        rpm: r?.day1Items || []
       });
     }
 
-    if (u.rpmTime > 0) {
+    if (laterTime > 0) {
       tasks.push({
-        unit_id: u.unit_id,
-        sheetName: u.sheetName,
-        type: "RPM",
-        time: u.rpmTime,
-        detail: `대표/풀이영상 ${fmt(u.rpmVideoMin)}, 문제 ${u.rpmProblemCount}문항`
+        unit_id: id,
+        phase: "Day2~Day4 학습",
+        time: laterTime,
+        basic: b?.laterItems || [],
+        rpm: r?.laterItems || []
       });
     }
   });
@@ -256,48 +346,29 @@ function splitUnitWork(units) {
   return tasks;
 }
 
-function buildSchedule(tasks, dailyLimit, basicTarget, rpmTarget) {
+function buildSchedule(tasks, dailyLimit) {
   const days = [];
   let day = {
     dayNo: 1,
-    basicTime: 0,
-    rpmTime: 0,
-    totalTime: 0,
-    items: []
+    total: 0,
+    tasks: []
   };
 
-  function pushDay() {
-    if (day.items.length > 0) {
+  tasks.forEach(task => {
+    if (day.tasks.length > 0 && day.total + task.time > dailyLimit) {
       days.push(day);
       day = {
         dayNo: days.length + 1,
-        basicTime: 0,
-        rpmTime: 0,
-        totalTime: 0,
-        items: []
+        total: 0,
+        tasks: []
       };
     }
-  }
 
-  tasks.forEach(task => {
-    let target = task.type === "기본서" ? basicTarget : rpmTarget;
-    let typeCurrent = task.type === "기본서" ? day.basicTime : day.rpmTime;
-
-    const wouldExceedDaily = day.totalTime + task.time > dailyLimit;
-    const wouldExceedType = typeCurrent + task.time > target + 15;
-
-    if (day.items.length > 0 && (wouldExceedDaily || wouldExceedType)) {
-      pushDay();
-    }
-
-    day.items.push(task);
-    day.totalTime += task.time;
-
-    if (task.type === "기본서") day.basicTime += task.time;
-    if (task.type === "RPM") day.rpmTime += task.time;
+    day.tasks.push(task);
+    day.total += task.time;
   });
 
-  pushDay();
+  if (day.tasks.length > 0) days.push(day);
   return days;
 }
 
@@ -306,16 +377,18 @@ async function makeSchedule() {
   const rpmFile = document.getElementById("rpmFile").files[0];
 
   if (!basicFile || !rpmFile) {
-    alert("기본서 파일과 RPM 파일을 모두 넣어주세요.");
+    alert("기본서 파일과 RPM 파일을 모두 업로드해주세요.");
     return;
   }
 
-  const daysPerWeek = num(document.getElementById("daysPerWeek").value);
   const dailyLimit = num(document.getElementById("dailyLimit").value);
-  const basicTarget = num(document.getElementById("basicTarget").value);
-  const rpmTarget = num(document.getElementById("rpmTarget").value);
-  const basicProblemMin = num(document.getElementById("basicProblemMin").value);
-  const rpmProblemMin = num(document.getElementById("rpmProblemMin").value);
+  const daysPerWeek = num(document.getElementById("daysPerWeek").value);
+  const problemMin = num(document.getElementById("problemMin").value);
+
+  const basicDay1Cols = getChecked("basicDay1Checks");
+  const basicLaterCols = getChecked("basicLaterChecks");
+  const rpmDay1Cols = getChecked("rpmDay1Checks");
+  const rpmLaterCols = getChecked("rpmLaterChecks");
 
   const basicWb = await readWorkbook(basicFile);
   const rpmWb = await readWorkbook(rpmFile);
@@ -323,19 +396,18 @@ async function makeSchedule() {
   const basicRows = workbookToRows(basicWb);
   const rpmRows = workbookToRows(rpmWb);
 
-  const basicMap = groupBasic(basicRows, basicProblemMin);
-  const rpmMap = groupRpm(rpmRows, rpmProblemMin);
+  const basicMap = calcBasicRows(basicRows, basicDay1Cols, basicLaterCols, problemMin);
+  const rpmMap = calcRpmRows(rpmRows, rpmDay1Cols, rpmLaterCols, problemMin);
 
-  const units = mergeUnits(basicMap, rpmMap);
-  const tasks = splitUnitWork(units);
-  const days = buildSchedule(tasks, dailyLimit, basicTarget, rpmTarget);
+  const tasks = mergeTasks(basicMap, rpmMap);
+  const days = buildSchedule(tasks, dailyLimit);
 
-  const totalMin = days.reduce((sum, d) => sum + d.totalTime, 0);
-  const totalWeeks = Math.ceil(days.length / daysPerWeek);
+  const totalMin = days.reduce((sum, d) => sum + d.total, 0);
+  const weeks = Math.ceil(days.length / daysPerWeek);
 
   document.getElementById("summary").innerHTML = `
     <p><b>총 학습일:</b> ${days.length}일</p>
-    <p><b>예상 소요 주차:</b> ${totalWeeks}주</p>
+    <p><b>예상 소요 주차:</b> ${weeks}주</p>
     <p><b>총 학습 시간:</b> ${fmt(totalMin)}</p>
   `;
 
@@ -345,37 +417,36 @@ async function makeSchedule() {
         <tr>
           <th>주차</th>
           <th>Day</th>
-          <th>기본서</th>
-          <th>RPM</th>
-          <th>총 시간</th>
-          <th>학습 내용</th>
+          <th>소단원</th>
+          <th>학습 구분</th>
+          <th>기본서 학습</th>
+          <th>RPM 학습</th>
+          <th>예상 시간</th>
         </tr>
       </thead>
       <tbody>
   `;
 
-  days.forEach((d, idx) => {
-    const week = Math.ceil((idx + 1) / daysPerWeek);
-
-    const items = d.items.map(item => `
-      <div>
-        <b>[${item.type}] ${item.unit_id}</b><br/>
-        <span class="small">${item.detail}</span>
-      </div>
-    `).join("<hr/>");
-
-    const status = d.totalTime > dailyLimit
-      ? `<span class="warn">${fmt(d.totalTime)} / 초과</span>`
-      : `<span class="ok">${fmt(d.totalTime)}</span>`;
+  days.forEach((d, i) => {
+    const week = Math.ceil((i + 1) / daysPerWeek);
+    d.tasks.forEach((task, idx) => {
+      html += `
+        <tr>
+          <td>${idx === 0 ? week + "주차" : ""}</td>
+          <td>${idx === 0 ? "Day " + (i + 1) : ""}</td>
+          <td>${task.unit_id}</td>
+          <td>${task.phase}</td>
+          <td>${task.basic.length ? task.basic.join("<br>") : "-"}</td>
+          <td>${task.rpm.length ? task.rpm.join("<br>") : "-"}</td>
+          <td>${fmt(task.time)}</td>
+        </tr>
+      `;
+    });
 
     html += `
       <tr>
-        <td>${week}주차</td>
-        <td class="day">Day ${idx + 1}</td>
-        <td>${fmt(d.basicTime)}</td>
-        <td>${fmt(d.rpmTime)}</td>
-        <td>${status}</td>
-        <td>${items}</td>
+        <td colspan="6" style="text-align:right;"><b>Day ${i + 1} 총 시간</b></td>
+        <td class="${d.total > dailyLimit ? "over" : "ok"}">${fmt(d.total)}</td>
       </tr>
     `;
   });
@@ -384,5 +455,6 @@ async function makeSchedule() {
   document.getElementById("result").innerHTML = html;
 }
 </script>
+
 </body>
 </html>
