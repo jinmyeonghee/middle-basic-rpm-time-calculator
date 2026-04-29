@@ -6,110 +6,855 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <style>
-body{font-family:Arial;padding:24px}
-table{border-collapse:collapse;width:100%}
-th,td{border:1px solid #ccc;padding:6px;text-align:center}
+body{font-family:Arial,sans-serif;padding:24px;background:#fff}
+button,select,input{padding:6px 10px;margin:4px}
+table{border-collapse:collapse;width:100%;margin-top:16px;font-size:14px}
+th,td{border:1px solid #ccc;padding:6px;text-align:center;vertical-align:top}
 th{background:#f5f5f5}
-.day-box{max-height:180px;overflow:auto;text-align:left}
-.section-basic{color:#1565c0;font-weight:bold}
-.section-rpm{color:#6a1b9a;font-weight:bold}
+.sticky-summary{position:sticky;top:0;z-index:10;background:#fff8dc;border:1px solid #ddd;padding:12px;margin-bottom:20px;font-size:15px}
+.control-box{margin:14px 0;padding:12px;border:1px solid #ddd;background:#fafafa}
+.day-box{width:220px;max-height:190px;overflow-y:auto;text-align:left;margin:0 auto}
+.day-box label{display:block;font-size:14px;line-height:1.6;white-space:nowrap}
+.type-day1{color:green;font-weight:bold}
+.type-day2{color:orange;font-weight:bold}
+.type-day3{color:red;font-weight:bold}
 .time-ok{background:#e8f5e9}
-.time-over{background:#ffebee}
+.time-warn{background:#fff8e1}
+.time-over{background:#ffebee;color:red;font-weight:bold}
+.time-empty{background:#f2f2f2;color:#999}
+.missing{color:red;font-weight:bold}
+.small{color:#666;font-size:13px}
+.section-basic{color:#1565c0;font-weight:bold;margin-bottom:4px}
+.section-rpm{color:#6a1b9a;font-weight:bold;margin-bottom:4px}
+.unit-main{font-weight:bold}
+.unit-sub{font-size:12px;color:#666;line-height:1.5}
 </style>
 </head>
 
 <body>
 
-<h1>중등 기본서 + RPM 통합 학습 (Day1~3)</h1>
+<h1>중등 기본서 + RPM 통합 학습 시간 계산기</h1>
 
-<input type="file" id="basicFile">
-<input type="file" id="rpmFile">
-<button onclick="loadFiles()">불러오기</button>
+<div class="sticky-summary" id="topSummary">
+  기본서 파일과 RPM 파일을 업로드하면 요약이 표시됩니다.
+</div>
+
+<h2>1. 데이터 입력</h2>
+
+<div class="control-box">
+  <b>기본서 파일</b><br>
+  <input type="file" id="basicFile" accept=".xlsx,.xls">
+  <br>
+
+  <b>RPM 파일</b><br>
+  <input type="file" id="rpmFile" accept=".xlsx,.xls">
+  <br>
+
+  <button onclick="handleFiles()">파일 읽기</button>
+  <button onclick="resetSchedule()">선택 초기화</button>
+
+  <p class="small">
+    기본서와 RPM의 unit_id는 달라도 됩니다.
+    <b>각 파일의 소단원 순서대로 같은 소단원</b>으로 매칭합니다.
+  </p>
+</div>
+
+<h2>2. 소단원 집계 결과</h2>
+<table id="summary"></table>
+
+<h2>3. Day 스케줄</h2>
+
+<div class="control-box">
+  <b>하루 기준 시간</b><br>
+  <select id="dailyLimit" onchange="refreshAll()">
+    <option value="60">60분</option>
+    <option value="90">90분</option>
+    <option value="120" selected>120분</option>
+  </select>
+
+  <br><br>
+
+  <b>자동 분배 옵션</b><br>
+  <button onclick="autoScheduleBasic()">통합 기본형 자동분배</button>
+  <button onclick="autoScheduleByLimit()">기준시간 맞춤형 자동분배</button>
+  <button onclick="downloadCSV()">⬇️ 다운로드</button>
+</div>
 
 <table id="schedule"></table>
 
+<h2>4. 커리큘럼 요약</h2>
+<div id="curriculumSummary" class="control-box">파일을 업로드하면 계산됩니다.</div>
+
 <script>
+let summaryData=[];
+let state={};
 
-let data=[];
+const basicCols=[
+  '개념원리 확인문제',
+  '핵심문제',
+  '확인문제',
+  '핵심문제up',
+  '확인문제up',
+  '계산력 강화하기',
+  '이문시',
+  '이문시up',
+  'step1',
+  'step2',
+  'step3',
+  '서술형예제',
+  '서술형유제'
+];
 
-function loadFiles(){
-  const bf=document.getElementById("basicFile").files[0];
-  const rf=document.getElementById("rpmFile").files[0];
+const rpmCols=[
+  '교과서 문제',
+  '대표 문제',
+  '유형 문제',
+  '유형UP 대표 문제',
+  '유형UP 유형 문제',
+  '시꼭문',
+  '시꼭문 서술형',
+  '시꼭문 실력UP'
+];
 
-  Promise.all([readExcel(bf), readExcel(rf)]).then(([b,r])=>{
-    buildData(b,r);
-    render();
-  });
+const keys=[
+  'basic_concept',
+  ...basicCols.map(c=>'basic_'+c),
+  ...rpmCols.map(c=>'rpm_'+c)
+];
+
+const days=['d1','d2','d3'];
+
+const basicDay1=[
+  'basic_concept',
+  'basic_개념원리 확인문제',
+  'basic_핵심문제',
+  'basic_확인문제',
+  'basic_핵심문제up',
+  'basic_확인문제up'
+];
+
+const rpmDay1=[
+  'rpm_대표 문제',
+  'rpm_유형UP 대표 문제',
+  'rpm_교과서 문제',
+  'rpm_유형 문제',
+  'rpm_유형UP 유형 문제'
+];
+
+const label=k=>{
+  if(k==='basic_concept') return '개념영상';
+  if(k.startsWith('basic_')) return k.replace('basic_','');
+  if(k.startsWith('rpm_')) return k.replace('rpm_','');
+  return k;
+};
+
+const shortLabel=k=>{
+  if(k==='basic_concept') return '기본서 개념영상';
+  if(k.startsWith('basic_')) return '기본서 '+k.replace('basic_','');
+  if(k.startsWith('rpm_')) return 'RPM '+k.replace('rpm_','');
+  return k;
+};
+
+const limit=()=>Number(document.getElementById('dailyLimit').value||120);
+
+const save=()=>{
+  localStorage.setItem('middle_combined_order_matched_split_state',JSON.stringify(state));
+};
+
+const load=()=>{
+  state=JSON.parse(localStorage.getItem('middle_combined_order_matched_split_state')||'{}');
+};
+
+function resetSchedule(){
+  state={};
+  localStorage.removeItem('middle_combined_order_matched_split_state');
+  renderSchedule();
 }
 
-function readExcel(file){
-  return new Promise(res=>{
+function readFile(file){
+  return new Promise((resolve,reject)=>{
     const reader=new FileReader();
+
     reader.onload=e=>{
-      const wb=XLSX.read(new Uint8Array(e.target.result),{type:"array"});
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
-      res(XLSX.utils.sheet_to_json(ws));
+
+      const rows=XLSX.utils.sheet_to_json(ws).map(row=>{
+        const o={};
+        Object.entries(row).forEach(([k,v])=>{
+          o[String(k).trim()]=v;
+        });
+        return o;
+      });
+
+      resolve(rows);
     };
+
+    reader.onerror=reject;
     reader.readAsArrayBuffer(file);
   });
 }
 
-function buildData(basic, rpm){
-  const bUnits=[...new Set(basic.map(r=>r.unit_id))];
-  const rUnits=[...new Set(rpm.map(r=>r.unit_id))];
+async function handleFiles(){
+  const basicFile=document.getElementById('basicFile').files[0];
+  const rpmFile=document.getElementById('rpmFile').files[0];
 
-  data=bUnits.map((b,i)=>{
-    return {
-      basic:b,
-      rpm:rUnits[i] || "-"
+  if(!basicFile) return alert('기본서 파일을 선택해주세요.');
+  if(!rpmFile) return alert('RPM 파일을 선택해주세요.');
+
+  const basicRows=await readFile(basicFile);
+  const rpmRows=await readFile(rpmFile);
+
+  state={};
+  localStorage.removeItem('middle_combined_order_matched_split_state');
+
+  compute(basicRows,rpmRows);
+}
+
+function compute(basicRows,rpmRows){
+  const basicUnits=computeBasicUnits(basicRows);
+  const rpmUnits=computeRpmUnits(rpmRows);
+
+  const maxLen=Math.max(basicUnits.length,rpmUnits.length);
+  summaryData=[];
+
+  for(let i=0;i<maxLen;i++){
+    const b=basicUnits[i]||emptyBasicUnit();
+    const r=rpmUnits[i]||emptyRpmUnit();
+
+    const row={
+      pair_id:`pair_${i+1}`,
+      order:i+1,
+      basic_unit:b.unit||'-',
+      rpm_unit:r.unit||'-'
     };
-  });
+
+    row.basic_concept=b.basic_concept/60000;
+    row.basic_concept_count=b.basic_concept_count;
+
+    basicCols.forEach(c=>{
+      row['basic_'+c]=b['basic_'+c]/60000;
+      row['basic_'+c+'_count']=b['basic_'+c+'_count'];
+    });
+
+    rpmCols.forEach(c=>{
+      row['rpm_'+c]=r['rpm_'+c]/60000;
+      row['rpm_'+c+'_count']=r['rpm_'+c+'_count'];
+    });
+
+    summaryData.push(row);
+  }
+
+  load();
+  renderSummary();
+  renderSchedule();
 }
 
-function render(){
-  let html=`
-  <tr>
-    <th rowspan="2">소단원</th>
-    <th colspan="5">Day1</th>
-    <th colspan="5">Day2</th>
-    <th colspan="5">Day3</th>
-  </tr>
-  <tr>
-    <th>기본서</th><th>기본서 시간</th>
-    <th>RPM</th><th>RPM 시간</th>
-    <th>총시간</th>
+function computeBasicUnits(rows){
+  const grouped={};
+  const order=[];
 
-    <th>기본서</th><th>기본서 시간</th>
-    <th>RPM</th><th>RPM 시간</th>
-    <th>총시간</th>
+  rows.forEach(r=>{
+    const unit=String(r.unit_id||'').trim();
+    if(!unit) return;
 
-    <th>기본서</th><th>기본서 시간</th>
-    <th>RPM</th><th>RPM 시간</th>
-    <th>총시간</th>
-  </tr>`;
+    if(!grouped[unit]){
+      grouped[unit]=emptyBasicUnit(unit);
+      order.push(unit);
+    }
 
-  data.forEach(d=>{
-    html+=`
-    <tr>
-      <td>${d.basic}, ${d.rpm}</td>
+    const ms=Number(r.duration_ms||0);
+    const type=Number(r.video_type||0);
 
-      ${dayCell()} ${dayCell()} ${dayCell()}
-    </tr>`;
+    if(type===3){
+      grouped[unit].basic_concept+=ms;
+      grouped[unit].basic_concept_count++;
+    }else{
+      basicCols.forEach(c=>{
+        if(r[c]){
+          grouped[unit]['basic_'+c]+=ms;
+          grouped[unit]['basic_'+c+'_count']++;
+        }
+      });
+    }
   });
 
-  document.getElementById("schedule").innerHTML=html;
+  return order.map(unit=>grouped[unit]);
 }
 
-function dayCell(){
+function computeRpmUnits(rows){
+  const grouped={};
+  const order=[];
+
+  rows.forEach(r=>{
+    const unit=String(r.unit_id||'').trim();
+    if(!unit) return;
+
+    if(!grouped[unit]){
+      grouped[unit]=emptyRpmUnit(unit);
+      order.push(unit);
+    }
+
+    const ms=Number(r.duration_ms||0);
+
+    rpmCols.forEach(c=>{
+      if(r[c]){
+        grouped[unit]['rpm_'+c]+=ms;
+        grouped[unit]['rpm_'+c+'_count']++;
+      }
+    });
+  });
+
+  return order.map(unit=>grouped[unit]);
+}
+
+function emptyBasicUnit(unit=''){
+  const obj={
+    unit,
+    basic_concept:0,
+    basic_concept_count:0
+  };
+
+  basicCols.forEach(c=>{
+    obj['basic_'+c]=0;
+    obj['basic_'+c+'_count']=0;
+  });
+
+  return obj;
+}
+
+function emptyRpmUnit(unit=''){
+  const obj={unit};
+
+  rpmCols.forEach(c=>{
+    obj['rpm_'+c]=0;
+    obj['rpm_'+c+'_count']=0;
+  });
+
+  return obj;
+}
+
+function activeKeys(row){
+  return keys.filter(k=>row[k]>0);
+}
+
+function activeBasicKeys(row){
+  return activeKeys(row).filter(k=>k==='basic_concept'||k.startsWith('basic_'));
+}
+
+function activeRpmKeys(row){
+  return activeKeys(row).filter(k=>k.startsWith('rpm_'));
+}
+
+function count(row,k){
+  return row[k+'_count']||0;
+}
+
+function unitText(row){
   return `
-  <td class="day-box">기본서 항목</td>
-  <td>60</td>
-  <td class="day-box">RPM 항목</td>
-  <td>60</td>
-  <td>120</td>
+    <div class="unit-main">${row.basic_unit}, ${row.rpm_unit}</div>
+    <div class="unit-sub">기본서 ${row.basic_unit}<br>RPM ${row.rpm_unit}</div>
   `;
 }
 
+function renderSummary(){
+  let html=`
+    <tr>
+      <th>순서</th>
+      <th>소단원<br>기본서, RPM</th>
+      <th>기본서 시간(분)</th>
+      <th>RPM 시간(분)</th>
+      <th>총 시간(분)</th>
+    </tr>
+  `;
+
+  summaryData.forEach(r=>{
+    const basicTotal=activeBasicKeys(r).reduce((s,k)=>s+(r[k]||0),0);
+    const rpmTotal=activeRpmKeys(r).reduce((s,k)=>s+(r[k]||0),0);
+    const total=basicTotal+rpmTotal;
+
+    html+=`
+      <tr>
+        <td>${r.order}</td>
+        <td>${unitText(r)}</td>
+        <td>${basicTotal.toFixed(1)}</td>
+        <td>${rpmTotal.toFixed(1)}</td>
+        <td>${total.toFixed(1)}</td>
+      </tr>
+    `;
+  });
+
+  document.getElementById('summary').innerHTML=html;
+}
+
+function renderChecksSplit(row,day,type){
+  const pair=row.pair_id;
+  const keysList=type==='basic' ? activeBasicKeys(row) : activeRpmKeys(row);
+
+  const title=type==='basic'
+    ? `<div class="section-basic">기본서 ${row.basic_unit}</div>`
+    : `<div class="section-rpm">RPM ${row.rpm_unit}</div>`;
+
+  let html=`<div class="day-box" id="box_${pair}_${day}_${type}">`;
+  html+=title;
+
+  if(!keysList.length){
+    html+=`<span class="small">항목 없음</span>`;
+  }
+
+  keysList.forEach(k=>{
+    html+=`
+      <label>
+        <input type="checkbox"
+          data-pair="${pair}"
+          data-key="${k}"
+          data-day="${day}"
+          ${state[pair]?.[k]===day?'checked':''}
+          onchange="handleCheck(this)">
+        ${label(k)}(${count(row,k)})
+      </label>
+    `;
+  });
+
+  html+='</div>';
+  return html;
+}
+
+function renderSchedule(){
+  let html=`
+    <tr>
+      <th rowspan="2">소단원<br>기본서, RPM</th>
+      <th rowspan="2">타입</th>
+
+      <th colspan="5">Day1</th>
+      <th colspan="5">Day2</th>
+      <th colspan="5">Day3</th>
+
+      <th rowspan="2">미완성</th>
+    </tr>
+
+    <tr>
+      <th>기본서</th>
+      <th>기본서 시간</th>
+      <th>RPM</th>
+      <th>RPM 시간</th>
+      <th>총시간</th>
+
+      <th>기본서</th>
+      <th>기본서 시간</th>
+      <th>RPM</th>
+      <th>RPM 시간</th>
+      <th>총시간</th>
+
+      <th>기본서</th>
+      <th>기본서 시간</th>
+      <th>RPM</th>
+      <th>RPM 시간</th>
+      <th>총시간</th>
+    </tr>
+  `;
+
+  summaryData.forEach(r=>{
+    html+=`
+      <tr>
+        <td>${unitText(r)}</td>
+        <td id="type_${r.pair_id}">-</td>
+
+        <td>${renderChecksSplit(r,'d1','basic')}</td>
+        <td id="time_d1_basic_${r.pair_id}">0.0</td>
+        <td>${renderChecksSplit(r,'d1','rpm')}</td>
+        <td id="time_d1_rpm_${r.pair_id}">0.0</td>
+        <td id="time_d1_${r.pair_id}">0.0</td>
+
+        <td>${renderChecksSplit(r,'d2','basic')}</td>
+        <td id="time_d2_basic_${r.pair_id}">0.0</td>
+        <td>${renderChecksSplit(r,'d2','rpm')}</td>
+        <td id="time_d2_rpm_${r.pair_id}">0.0</td>
+        <td id="time_d2_${r.pair_id}">0.0</td>
+
+        <td>${renderChecksSplit(r,'d3','basic')}</td>
+        <td id="time_d3_basic_${r.pair_id}">0.0</td>
+        <td>${renderChecksSplit(r,'d3','rpm')}</td>
+        <td id="time_d3_rpm_${r.pair_id}">0.0</td>
+        <td id="time_d3_${r.pair_id}">0.0</td>
+
+        <td id="missing_${r.pair_id}">-</td>
+      </tr>
+    `;
+  });
+
+  document.getElementById('schedule').innerHTML=html;
+  refreshAll();
+}
+
+function handleCheck(input){
+  const pair=input.dataset.pair;
+  const key=input.dataset.key;
+  const day=input.dataset.day;
+
+  const scrolls={};
+
+  days.forEach(d=>{
+    ['basic','rpm'].forEach(type=>{
+      const box=document.getElementById(`box_${pair}_${d}_${type}`);
+      if(box) scrolls[`${d}_${type}`]=box.scrollTop;
+    });
+  });
+
+  if(!state[pair]) state[pair]={};
+
+  if(state[pair][key]===day){
+    delete state[pair][key];
+  }else{
+    state[pair][key]=day;
+  }
+
+  save();
+  renderSchedule();
+
+  requestAnimationFrame(()=>{
+    days.forEach(d=>{
+      ['basic','rpm'].forEach(type=>{
+        const box=document.getElementById(`box_${pair}_${d}_${type}`);
+        const skey=`${d}_${type}`;
+        if(box && scrolls[skey]!==undefined){
+          box.scrollTop=scrolls[skey];
+        }
+      });
+    });
+  });
+}
+
+function refreshAll(){
+  summaryData.forEach(r=>{
+    updateTimes(r.pair_id);
+    updateType(r.pair_id);
+    updateMissing(r.pair_id);
+  });
+
+  updateSummaryText();
+}
+
+function findRow(pair){
+  return summaryData.find(r=>r.pair_id==pair);
+}
+
+function updateTimes(pair){
+  const row=findRow(pair);
+  if(!row) return;
+
+  days.forEach(d=>{
+    let basicTotal=0;
+    let rpmTotal=0;
+
+    Object.entries(state[pair]||{}).forEach(([k,day])=>{
+      if(day===d){
+        if(k==='basic_concept'||k.startsWith('basic_')){
+          basicTotal+=row[k]||0;
+        }
+
+        if(k.startsWith('rpm_')){
+          rpmTotal+=row[k]||0;
+        }
+      }
+    });
+
+    setTimeCell(`time_${d}_basic_${pair}`,basicTotal);
+    setTimeCell(`time_${d}_rpm_${pair}`,rpmTotal);
+    setTimeCell(`time_${d}_${pair}`,basicTotal+rpmTotal);
+  });
+}
+
+function setTimeCell(id,val){
+  const el=document.getElementById(id);
+  if(!el) return;
+
+  const l=limit();
+
+  el.innerText=val.toFixed(1);
+  el.className='';
+
+  if(val===0){
+    el.classList.add('time-empty');
+  }else if(val>l){
+    el.classList.add('time-over');
+  }else if(val>=l*0.7){
+    el.classList.add('time-ok');
+  }else{
+    el.classList.add('time-warn');
+  }
+}
+
+function unitType(pair){
+  const used=Object.values(state[pair]||{});
+
+  if(used.includes('d3')) return 'day3';
+  if(used.includes('d2')) return 'day2';
+  if(used.includes('d1')) return 'day1';
+
+  return '-';
+}
+
+function updateType(pair){
+  const type=unitType(pair);
+  const el=document.getElementById(`type_${pair}`);
+
+  if(!el) return;
+
+  el.innerText=type;
+  el.className=type!=='-'?`type-${type}`:'';
+}
+
+function updateMissing(pair){
+  const row=findRow(pair);
+  const missing=activeKeys(row).filter(k=>!Object.keys(state[pair]||{}).includes(k));
+  const el=document.getElementById(`missing_${pair}`);
+
+  if(!el) return;
+
+  if(missing.length===0){
+    el.innerText='완료';
+    el.className='';
+  }else{
+    el.innerText=`${missing.length}개 미배정`;
+    el.className='missing';
+  }
+}
+
+function autoScheduleBasic(){
+  summaryData.forEach(row=>{
+    const pair=row.pair_id;
+    state[pair]={};
+
+    basicDay1.forEach(k=>{
+      if(row[k]>0) state[pair][k]='d1';
+    });
+
+    rpmDay1.forEach(k=>{
+      if(row[k]>0) state[pair][k]='d1';
+    });
+
+    keys.forEach(k=>{
+      if(row[k]>0 && !state[pair][k]){
+        state[pair][k]='d2';
+      }
+    });
+  });
+
+  save();
+  renderSchedule();
+}
+
+function autoScheduleByLimit(){
+  const l=limit();
+
+  summaryData.forEach(row=>{
+    const pair=row.pair_id;
+    state[pair]={};
+
+    let idx=0;
+    let sum=0;
+
+    activeKeys(row).forEach(k=>{
+      const t=row[k]||0;
+
+      if(sum+t>l && idx<days.length-1){
+        idx++;
+        sum=0;
+      }
+
+      state[pair][k]=days[idx];
+      sum+=t;
+    });
+  });
+
+  save();
+  renderSchedule();
+}
+
+function dayTime(row,day){
+  let total=0;
+
+  Object.entries(state[row.pair_id]||{}).forEach(([k,d])=>{
+    if(d===day){
+      total+=row[k]||0;
+    }
+  });
+
+  return total;
+}
+
+function dayBasicTime(row,day){
+  let total=0;
+
+  Object.entries(state[row.pair_id]||{}).forEach(([k,d])=>{
+    if(d===day && (k==='basic_concept'||k.startsWith('basic_'))){
+      total+=row[k]||0;
+    }
+  });
+
+  return total;
+}
+
+function dayRpmTime(row,day){
+  let total=0;
+
+  Object.entries(state[row.pair_id]||{}).forEach(([k,d])=>{
+    if(d===day && k.startsWith('rpm_')){
+      total+=row[k]||0;
+    }
+  });
+
+  return total;
+}
+
+function dayBasicText(row,day){
+  const items=[];
+
+  Object.entries(state[row.pair_id]||{}).forEach(([k,d])=>{
+    if(d===day && (k==='basic_concept'||k.startsWith('basic_'))){
+      items.push(`${shortLabel(k)}(${count(row,k)})`);
+    }
+  });
+
+  return items.join(' / ');
+}
+
+function dayRpmText(row,day){
+  const items=[];
+
+  Object.entries(state[row.pair_id]||{}).forEach(([k,d])=>{
+    if(d===day && k.startsWith('rpm_')){
+      items.push(`${shortLabel(k)}(${count(row,k)})`);
+    }
+  });
+
+  return items.join(' / ');
+}
+
+function updateSummaryText(){
+  let totalDays=0;
+  let dayCount={day1:0,day2:0,day3:0};
+  let over=0;
+  let missing=0;
+
+  summaryData.forEach(row=>{
+    const type=unitType(row.pair_id);
+
+    if(type!=='-'){
+      dayCount[type]++;
+      totalDays+=Number(type.replace('day',''));
+    }
+
+    if(activeKeys(row).some(k=>!Object.keys(state[row.pair_id]||{}).includes(k))){
+      missing++;
+    }
+
+    days.forEach(d=>{
+      if(dayTime(row,d)>limit()){
+        over++;
+      }
+    });
+  });
+
+  const text=`
+    <b>총 예상 소요일:</b> ${totalDays}일 /
+    day1 소단원: ${dayCount.day1}개 /
+    day2 소단원: ${dayCount.day2}개 /
+    day3 소단원: ${dayCount.day3}개 /
+    기준시간 초과: ${over}건 /
+    미완성 소단원: ${missing}개
+  `;
+
+  document.getElementById('topSummary').innerHTML=text;
+  document.getElementById('curriculumSummary').innerHTML=text;
+}
+
+function downloadCSV(){
+  const rows=[[
+    'basic_unit_id',
+    'rpm_unit_id',
+    'type',
+
+    'day1_basic',
+    'day1_basic_time',
+    'day1_rpm',
+    'day1_rpm_time',
+    'day1_total_time',
+
+    'day2_basic',
+    'day2_basic_time',
+    'day2_rpm',
+    'day2_rpm_time',
+    'day2_total_time',
+
+    'day3_basic',
+    'day3_basic_time',
+    'day3_rpm',
+    'day3_rpm_time',
+    'day3_total_time',
+
+    'missing'
+  ]];
+
+  let totalDays=0;
+
+  summaryData.forEach(row=>{
+    const type=unitType(row.pair_id);
+
+    if(type!=='-'){
+      totalDays+=Number(type.replace('day',''));
+    }
+
+    const missing=activeKeys(row)
+      .filter(k=>!Object.keys(state[row.pair_id]||{}).includes(k))
+      .map(shortLabel);
+
+    rows.push([
+      row.basic_unit,
+      row.rpm_unit,
+      type,
+
+      dayBasicText(row,'d1'),
+      dayBasicTime(row,'d1').toFixed(1),
+      dayRpmText(row,'d1'),
+      dayRpmTime(row,'d1').toFixed(1),
+      dayTime(row,'d1').toFixed(1),
+
+      dayBasicText(row,'d2'),
+      dayBasicTime(row,'d2').toFixed(1),
+      dayRpmText(row,'d2'),
+      dayRpmTime(row,'d2').toFixed(1),
+      dayTime(row,'d2').toFixed(1),
+
+      dayBasicText(row,'d3'),
+      dayBasicTime(row,'d3').toFixed(1),
+      dayRpmText(row,'d3'),
+      dayRpmTime(row,'d3').toFixed(1),
+      dayTime(row,'d3').toFixed(1),
+
+      missing.join(' / ')
+    ]);
+  });
+
+  rows.push([]);
+  rows.push(['요약',`총 예상 소요일: ${totalDays}일`]);
+
+  const csv='\ufeff'+rows.map(r=>
+    r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')
+  ).join('\n');
+
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='middle_basic_rpm_schedule.csv';
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
 </script>
 
 </body>
