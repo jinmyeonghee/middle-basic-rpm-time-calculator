@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>고등 기본서 + RPM 통합 학습 시간 계산기</title>
+<title>중등 기본서 + RPM 통합 학습 시간 계산기</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 body{font-family:Arial,sans-serif;padding:24px;background:#fff}
@@ -25,7 +25,7 @@ th{background:#f5f5f5}
 </style>
 </head>
 <body>
-<h1>고등 기본서 + RPM 통합 학습 시간 계산기</h1>
+<h1>중등 기본서 + RPM 통합 학습 시간 계산기</h1>
 <div class="sticky-summary" id="topSummary">기본서 파일과 RPM 파일을 업로드하면 요약이 표시됩니다.</div>
 
 <h2>1. 데이터 입력</h2>
@@ -61,7 +61,7 @@ th{background:#f5f5f5}
   <button onclick="autoScheduleBasic()">통합 기본형 자동분배</button>
   <button onclick="autoScheduleByLimit()">기준시간 맞춤형 자동분배</button>
   <button onclick="downloadCSV()">⬇️ 다운로드</button>
-  <p class="small">하위권 선택 시 기본서: 발전 예제/발전 확인/특강 예제/특강 확인/step2/실력 UP 제외, RPM: 유형UP 대표 문제/유형UP 유형 문제/시꼭문 실력UP 제외</p>
+  <p class="small">하위권 선택 시 기본서: 핵심문제up/확인문제up/이문시up/step2/step3 제외, RPM: 유형UP 대표 문제/유형UP 유형 문제/시꼭문 실력UP 제외</p>
 </div>
 
 <table id="schedule"></table>
@@ -72,53 +72,20 @@ th{background:#f5f5f5}
 <script>
 let summaryData=[], state={};
 
-const basicCols=[
-  '개념원리 익히기',
-  '필수 예제',
-  '확인 체크',
-  '발전 예제',
-  '발전 확인',
-  '특강 예제',
-  '특강 확인',
-  'step1',
-  'step2',
-  '실력 UP'
-];
-const rpmCols=[
-  '교과서 문제',
-  '대표 문제',
-  '유형 문제',
-  '유형UP 대표 문제',
-  '유형UP 유형 문제',
-  '시꼭문',
-  '시꼭문 서술형',
-  '시꼭문 실력UP'
-];
+const basicCols=['개념원리 확인문제','핵심문제','확인문제','핵심문제up','확인문제up','계산력 강화하기','이문시','이문시up','step1','step2','step3','서술형예제','서술형유제'];
+const rpmCols=['교과서 문제','대표 문제','유형 문제','유형UP 대표 문제','유형UP 유형 문제','시꼭문','시꼭문 서술형','시꼭문 실력UP'];
 const keys=['basic_concept',...basicCols.map(c=>'basic_'+c),...rpmCols.map(c=>'rpm_'+c)];
 const days=['d1','d2','d3'];
 
-const basicDay1=[
-  'basic_concept',
-  'basic_개념원리 익히기',
-  'basic_필수 예제',
-  'basic_발전 예제',
-  'basic_특강 예제'
-];
-const rpmDay1=[
-  'rpm_대표 문제',
-  'rpm_유형UP 대표 문제',
-  'rpm_교과서 문제',
-  'rpm_유형 문제',
-  'rpm_유형UP 유형 문제'
-];
+const basicDay1=['basic_concept','basic_개념원리 확인문제','basic_핵심문제','basic_확인문제','basic_핵심문제up','basic_확인문제up'];
+const rpmDay1=['rpm_대표 문제','rpm_유형UP 대표 문제','rpm_교과서 문제','rpm_유형 문제','rpm_유형UP 유형 문제'];
 
 const lowExcludedKeys=[
-  'basic_발전 예제',
-  'basic_발전 확인',
-  'basic_특강 예제',
-  'basic_특강 확인',
+  'basic_핵심문제up',
+  'basic_확인문제up',
+  'basic_이문시up',
   'basic_step2',
-  'basic_실력 UP',
+  'basic_step3',
   'rpm_유형UP 대표 문제',
   'rpm_유형UP 유형 문제',
   'rpm_시꼭문 실력UP'
@@ -149,8 +116,8 @@ const shortLabel=k=>{
 };
 
 const limit=()=>Number(document.getElementById('dailyLimit').value||120);
-const save=()=>localStorage.setItem('high_combined_order_matched_split_state',JSON.stringify(state));
-const load=()=>state=JSON.parse(localStorage.getItem('high_combined_order_matched_split_state')||'{}');
+const save=()=>localStorage.setItem('middle_combined_order_matched_split_state',JSON.stringify(state));
+const load=()=>state=JSON.parse(localStorage.getItem('middle_combined_order_matched_split_state')||'{}');
 
 function applyLevelFilter(){
   if(studentLevel()==='low'){
@@ -166,7 +133,7 @@ function applyLevelFilter(){
 
 function resetSchedule(){
   state={};
-  localStorage.removeItem('high_combined_order_matched_split_state');
+  localStorage.removeItem('middle_combined_order_matched_split_state');
   renderSchedule();
 }
 
@@ -199,7 +166,7 @@ async function handleFiles(){
   const rpmRows=await readFile(rpmFile);
 
   state={};
-  localStorage.removeItem('high_combined_order_matched_split_state');
+  localStorage.removeItem('middle_combined_order_matched_split_state');
   compute(basicRows,rpmRows);
 }
 
@@ -719,7 +686,7 @@ function downloadCSV(){
 
   const a=document.createElement('a');
   a.href=url;
-  a.download='high_basic_rpm_final_schedule.csv';
+  a.download='middle_basic_rpm_final_schedule.csv';
   a.click();
 
   URL.revokeObjectURL(url);
