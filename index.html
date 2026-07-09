@@ -30,8 +30,12 @@ th{background:#f5f5f5}
 
 <h2>1. 데이터 입력</h2>
 <div class="control-box">
+  <b>학습 모드</b><br>
+  <label><input type="radio" name="learnMode" value="both" checked onchange="applyMode()"> 기본서 + RPM</label>
+  <label><input type="radio" name="learnMode" value="basicOnly" onchange="applyMode()"> 기본서만</label>
+  <br><br>
   <b>기본서 파일</b><br><input type="file" id="basicFile" accept=".xlsx,.xls"><br>
-  <b>RPM 파일</b><br><input type="file" id="rpmFile" accept=".xlsx,.xls"><br>
+  <span id="rpmFileGroup"><b>RPM 파일</b><br><input type="file" id="rpmFile" accept=".xlsx,.xls"><br></span>
   <button onclick="handleFiles()">파일 읽기</button>
   <button onclick="resetSchedule()">선택 초기화</button>
   <p class="small">기본서와 RPM의 unit_id는 달라도 됩니다. <b>각 파일의 소단원 순서대로 같은 소단원</b>으로 매칭합니다.</p>
@@ -94,6 +98,15 @@ const lowExcludedKeys=[
 function studentLevel(){
   const el=document.getElementById('studentLevel');
   return el ? el.value : 'mid';
+}
+
+function learnMode(){
+  const el=document.querySelector('input[name="learnMode"]:checked');
+  return el ? el.value : 'both';
+}
+
+function applyMode(){
+  document.getElementById('rpmFileGroup').style.display = learnMode()==='basicOnly' ? 'none' : '';
 }
 
 function isAllowedKey(k){
@@ -159,11 +172,13 @@ function readFile(file){
 async function handleFiles(){
   const basicFile=document.getElementById('basicFile').files[0];
   const rpmFile=document.getElementById('rpmFile').files[0];
+  const mode=learnMode();
+
   if(!basicFile) return alert('기본서 파일을 선택해주세요.');
-  if(!rpmFile) return alert('RPM 파일을 선택해주세요.');
+  if(mode==='both' && !rpmFile) return alert('RPM 파일을 선택해주세요.');
 
   const basicRows=await readFile(basicFile);
-  const rpmRows=await readFile(rpmFile);
+  const rpmRows=(mode==='basicOnly' || !rpmFile) ? [] : await readFile(rpmFile);
 
   state={};
   localStorage.removeItem('middle_combined_order_matched_split_state');
