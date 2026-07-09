@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>중등 기본서, RPM 통합 학습 시간 계산기</title>
+<title>중등 기본서 + RPM 통합 학습 시간 계산기</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 body{font-family:Arial,sans-serif;padding:24px;background:#fff}
@@ -25,7 +25,7 @@ th{background:#f5f5f5}
 </style>
 </head>
 <body>
-<h1>중등 기본서, RPM 통합 학습 시간 계산기</h1>
+<h1>중등 기본서 + RPM 통합 학습 시간 계산기</h1>
 <div class="sticky-summary" id="topSummary">기본서 파일과 RPM 파일을 업로드하면 요약이 표시됩니다.</div>
 
 <h2>1. 데이터 입력</h2>
@@ -33,8 +33,9 @@ th{background:#f5f5f5}
   <b>학습 모드</b><br>
   <label><input type="radio" name="learnMode" value="both" checked onchange="applyMode()"> 기본서 + RPM</label>
   <label><input type="radio" name="learnMode" value="basicOnly" onchange="applyMode()"> 기본서만</label>
+  <label><input type="radio" name="learnMode" value="rpmOnly" onchange="applyMode()"> RPM만</label>
   <br><br>
-  <b>기본서 파일</b><br><input type="file" id="basicFile" accept=".xlsx,.xls"><br>
+  <span id="basicFileGroup"><b>기본서 파일</b><br><input type="file" id="basicFile" accept=".xlsx,.xls"><br></span>
   <span id="rpmFileGroup"><b>RPM 파일</b><br><input type="file" id="rpmFile" accept=".xlsx,.xls"><br></span>
   <button onclick="handleFiles()">파일 읽기</button>
   <button onclick="resetSchedule()">선택 초기화</button>
@@ -106,7 +107,9 @@ function learnMode(){
 }
 
 function applyMode(){
-  document.getElementById('rpmFileGroup').style.display = learnMode()==='basicOnly' ? 'none' : '';
+  const mode=learnMode();
+  document.getElementById('basicFileGroup').style.display = mode==='rpmOnly' ? 'none' : '';
+  document.getElementById('rpmFileGroup').style.display = mode==='basicOnly' ? 'none' : '';
 }
 
 function isAllowedKey(k){
@@ -174,11 +177,11 @@ async function handleFiles(){
   const rpmFile=document.getElementById('rpmFile').files[0];
   const mode=learnMode();
 
-  if(!basicFile) return alert('기본서 파일을 선택해주세요.');
-  if(mode==='both' && !rpmFile) return alert('RPM 파일을 선택해주세요.');
+  if(mode!=='rpmOnly' && !basicFile) return alert('기본서 파일을 선택해주세요.');
+  if(mode!=='basicOnly' && !rpmFile) return alert('RPM 파일을 선택해주세요.');
 
-  const basicRows=await readFile(basicFile);
-  const rpmRows=(mode==='basicOnly' || !rpmFile) ? [] : await readFile(rpmFile);
+  const basicRows=(mode==='rpmOnly') ? [] : await readFile(basicFile);
+  const rpmRows=(mode==='basicOnly') ? [] : await readFile(rpmFile);
 
   state={};
   localStorage.removeItem('middle_combined_order_matched_split_state');
